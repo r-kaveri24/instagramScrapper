@@ -7,45 +7,56 @@ export async function POST(req) {
     try {
         await chromium.font("https://raw.githack.com/googlei18n/noto-emoji/master/fonts/NotoColorEmoji.ttf");
 
+        const { instagramUsername, instagramPassword } = await req.json();
+
+        if (!instagramUsername || !instagramPassword) {
+            return new Response(JSON.stringify({ error: "Missing Instagram credentials" }), { status: 400 });
+        }
+
         const browser = await puppeteer.launch({
             args: [...chromium.args],
             defaultViewport: { width: 1280, height: 720 },
             executablePath: process.env.CHROME_EXECUTABLE_PATH || await chromium.executablePath(),
-            headless: "shell",
+            headless: false, // Change to true for production
         });
 
-        const { instagramUrl } = await req.json();
-        if (!instagramUrl) {
-            return new Response(JSON.stringify({ error: "Please check the username" }), { status: 400 });
-        }
-
         const page = await browser.newPage();
-        await page.goto(instagramUrl, { waitUntil: "networkidle2" });
 
-        // Dismiss login popup if present
-        const loginPopupSelector = 'button[tabindex="0"]';
-        const popupExists = await page.$(loginPopupSelector);
-        if (popupExists) {
-            await page.click(loginPopupSelector);
-            await page.waitForTimeout(2000);
-        }
-
-        // Extract the content of the og:description meta tag
-        await page.waitForSelector('meta[property="og:description"]', { timeout: 7000 });
-        const descriptionContent = await page.$eval(
-            'meta[property="og:description"]',
-            el => el.getAttribute('content')
+        // **Set a realistic user-agent to reduce bot detection**
+        await page.setUserAgent(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
         );
-        console.log(descriptionContent);
+
+        // **Go to Instagram login page**
+        await page.goto("https://www.instagram.com/accounts/login/", { waitUntil: "networkidle2" });
+
+        // **Log in using provided credentials**
+        await page.type('input[name="username"]', instagramUsername, { delay: 100 });
+        await page.type('input[name="password"]', instagramPassword, { delay: 100 });
+        await page.click('button[type="submit"]');
+
+        await page.waitForNavigation({ waitUntil: "networkidle2" });
+
+        // **Go to user's own profile**
+        const profileURL = `https://www.instagram.com/${instagramUsername}/`;
+        await page.goto(profileURL, { waitUntil: "networkidle2" });
+
+        // **Ensure meta tag exists before extraction**
+        const metaExists = await page.$('meta[property="og:description"]');
+        let descriptionContent = metaExists
+            ? await page.$eval('meta[property="og:description"]', el => el.getAttribute('content'))
+            : "Meta tag not found";
+
+        console.log("Extracted Meta:", descriptionContent);
 
         await browser.close();
 
-        // Extract the numbers using regex
+        // **Extract numbers using regex**
         const counts = descriptionContent?.match(/([\d,.]+)\sFollowers.*?([\d,.]+)\sFollowing.*?([\d,.]+)\sPosts/i);
 
-        const followers = counts?.[1] || null;
-        const following = counts?.[2] || null;
-        const posts = counts?.[3] || null;
+        const followers = counts?.[1] || "Unknown";
+        const following = counts?.[2] || "Unknown";
+        const posts = counts?.[3] || "Unknown";
 
         return new Response(
             JSON.stringify({
@@ -58,6 +69,7 @@ export async function POST(req) {
         );
 
     } catch (error) {
+        console.error("Scraping Error:", error.message);
         return new Response(
             JSON.stringify({ error: error.message }),
             { status: 500, headers: { "Content-Type": "application/json" } }
