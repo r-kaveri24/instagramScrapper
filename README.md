@@ -12,7 +12,7 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 Give the username in the input 
-
+Change the .env chrome path for the pupperteer to run the chrome.
 
 
 ## Learn More
