@@ -31,10 +31,12 @@ export async function POST(req) {
         }
 
         // Extract the content of the og:description meta tag
+        await page.waitForSelector('meta[property="og:description"]', { timeout: 7000 });
         const descriptionContent = await page.$eval(
             'meta[property="og:description"]',
             el => el.getAttribute('content')
         );
+        console.log(descriptionContent);
 
         await browser.close();
 

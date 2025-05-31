@@ -1,7 +1,6 @@
 'use client';
 import { useState } from "react";
-import ResultDisplay from "./components/ResultDisplay"; // adjust path if needed
-
+import ResultDisplay from "./components/ResultDisplay";
 export default function HomePage() {
   const [username, setUsername] = useState("");
   const [result, setResult] = useState(null);
@@ -26,7 +25,7 @@ export default function HomePage() {
     setTimeout(() => {
       setIsAnimating(false);
       setShowResult(true);
-    }, 1000); // match your animation duration
+    }, 1000);
   }
 
   const cardClasses = `
